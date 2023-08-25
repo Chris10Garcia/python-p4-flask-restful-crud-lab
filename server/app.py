@@ -43,10 +43,43 @@ api.add_resource(Plants, '/plants')
 
 class PlantByID(Resource):
 
-    def get(self, id):
-        plant = Plant.query.filter_by(id=id).first().to_dict()
+    def record_checker(func):
+        def wrapper(self, id):
+            record = Plant.query.filter(Plant.id == id).first()
+            if record == None:
+                response_body = "<h1>404, record not found</h1>"
+                response = make_response(response_body, 404)
+                return response
+            return func(self, record)
+        return wrapper
+
+    @record_checker
+    def get(self, record):
+        # plant = Plant.query.filter_by(id=id).first().to_dict()
+        plant = record.to_dict()
         return make_response(jsonify(plant), 200)
 
+    @record_checker
+    def patch(self, record):
+        
+        try:
+            request.get_json()
+            [setattr(record, attr, request.json.get(attr)) for attr in request.json if hasattr(Plant, attr) and attr != "id"]
+        except:
+            [setattr(record, attr, request.form.get(attr)) for attr in request.form if hasattr(Plant, attr) and attr != "id"]
+        
+        db.session.add(record)
+        db.session.commit()
+
+        plant = record.to_dict()
+        return make_response(jsonify(plant), 200)
+
+    @record_checker
+    def delete(self, record):
+        db.session.delete(record)
+        db.session.commit()
+        response = make_response("", 204)
+        return response
 
 api.add_resource(PlantByID, '/plants/<int:id>')
 
